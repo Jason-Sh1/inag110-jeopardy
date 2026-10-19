@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Speech Jeopardy: Ch. 11 &amp; 14</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Source+Serif+4:opsz,wght@8..60,500;8..60,700&family=Barlow:wght@500;700&display=swap">
+<style>
+/* Layout: a TV-studio game board — 6 category columns x 5 value rows, scoreboard below, full-screen clue card on click. Single deliberate dark look. */
+:root {
+  color-scheme: dark;
+  --stage: #0a0d24;
+  --board: #060ce9;
+  --board-deep: #0309a8;
+  --gold: #ffcc33;
+  --ink: #ffffff;
+  --muted: #a9b0e8;
+  --good: #3ddc84;
+  --bad: #ff6b6b;
+  --display: "Anton", "Impact", "Arial Narrow", sans-serif;
+  --clue: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --ui: "Barlow", "Helvetica Neue", Arial, sans-serif;
+}
+html, body { background: var(--stage); color: var(--ink); }
+[hidden]{display:none!important}
+body { margin: 0;
+  font-family: var(--ui);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 5vw, 3.2rem); letter-spacing: .02em; margin: 0; line-height: 1; text-wrap: balance; }
+h1 span { color: var(--gold); }
+.sub { color: var(--muted); font-size: .95rem; letter-spacing: .08em; text-transform: uppercase; margin-top: 6px; }
+button { font-family: var(--ui); cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.ghost { background: transparent; color: var(--muted); border: 1px solid #333a7a; border-radius: 6px; padding: 8px 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: .8rem; }
+.ghost:hover { color: var(--ink); border-color: var(--muted); }
+
+.board-scroll { overflow-x: auto; border-radius: 6px; }
+.board { display: grid; grid-template-columns: repeat(6, minmax(110px, 1fr)); gap: 6px; background: #000; padding: 6px; min-width: 700px; }
+.cat, .tile { background: var(--board); display: flex; align-items: center; justify-content: center; text-align: center; box-shadow: inset 0 0 18px rgba(0,0,0,.45); }
+.cat { font-family: var(--ui); font-weight: 700; text-transform: uppercase; font-size: clamp(.8rem, 1.4vw, 1.05rem); letter-spacing: .04em; line-height: 1.15; padding: 14px 8px; min-height: 76px; text-shadow: 2px 2px 0 #000; text-wrap: balance; }
+.tile { border: 0; color: var(--gold); font-family: var(--display); font-size: clamp(1.6rem, 3.4vw, 2.6rem); min-height: 84px; text-shadow: 3px 3px 0 #000; font-variant-numeric: tabular-nums; transition: transform .12s ease, background .12s ease; }
+.tile:hover { background: #1a20ff; transform: scale(1.03); }
+.tile.used { background: var(--board-deep); color: transparent; text-shadow: none; transform: none; cursor: default; }
+
+.scores { display: flex; flex-wrap: wrap; gap: 12px; }
+.team { flex: 1 1 200px; background: #111640; border: 1px solid #262d6e; border-radius: 6px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.team input { background: transparent; border: 0; color: var(--muted); font-family: var(--ui); font-weight: 700; font-size: .85rem; letter-spacing: .08em; text-transform: uppercase; padding: 0; width: 100%; }
+.team input:focus-visible { outline: 2px solid var(--gold); }
+.team .pts { font-family: var(--display); font-size: 2.2rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.team .pts.neg { color: var(--bad); }
+
+.clue { position: fixed; inset: 0; background: var(--board); z-index: 20; display: flex; flex-direction: column;
+  padding: calc(24px + env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+  animation: zoom .28s ease-out; }
+@keyframes zoom { from { transform: scale(.6); opacity: .4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .clue { animation: none; } .tile { transition: none; } }
+.clue-top { display: flex; justify-content: space-between; gap: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; font-size: .9rem; color: var(--muted); }
+.clue-top b { color: var(--gold); font-family: var(--display); font-weight: 400; font-size: 1.6rem; letter-spacing: 0; }
+.clue-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; text-align: center; max-width: 960px; margin: 0 auto; width: 100%; min-width: 0; }
+.q { font-family: var(--clue); font-weight: 700; font-size: clamp(1.5rem, 4vw, 2.8rem); line-height: 1.25; text-transform: uppercase; text-shadow: 3px 3px 0 #000; text-wrap: balance; margin: 0; }
+.a { font-family: var(--clue); font-weight: 500; font-size: clamp(1.1rem, 2.6vw, 1.75rem); line-height: 1.35; color: var(--gold); text-shadow: 2px 2px 0 #000; margin: 0; text-wrap: balance; }
+.a::before { content: "Answer"; display: block; font-family: var(--ui); font-weight: 700; font-size: .8rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); text-shadow: none; margin-bottom: 8px; }
+.controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.btn { border: 0; border-radius: 6px; padding: 12px 20px; font-weight: 700; font-size: 1rem; letter-spacing: .05em; text-transform: uppercase; }
+.btn.primary { background: var(--gold); color: #10135a; }
+.btn.plain { background: rgba(0,0,0,.3); color: var(--ink); }
+.award { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.award button { border: 1px solid rgba(255,255,255,.35); background: rgba(0,0,0,.25); color: var(--ink); border-radius: 6px; padding: 8px 12px; font-weight: 700; font-size: .85rem; }
+.award button.plus:hover { border-color: var(--good); color: var(--good); }
+.award button.minus:hover { border-color: var(--bad); color: var(--bad); }
+.award-label { width: 100%; text-align: center; color: var(--muted); font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Speech <span>Jeopardy!</span></h1>
+      <div class="sub">Chapter 11 Informative · Chapter 14 Special Occasion</div>
+    </div>
+    <button class="ghost" id="reset">Reset board</button>
+  </header>
+
+  <div class="board-scroll"><div class="board" id="board"></div></div>
+
+  <div class="scores" id="scores"></div>
+</div>
+
+<div class="clue" id="clue" hidden>
+  <div class="clue-top"><span id="clue-cat"></span><b id="clue-val"></b></div>
+  <div class="clue-body">
+    <p class="q" id="clue-q"></p>
+    <p class="a" id="clue-a" hidden></p>
+    <div class="controls">
+      <button class="btn primary" id="reveal">Reveal answer</button>
+      <button class="btn plain" id="back">Back to board</button>
+    </div>
+    <div class="award" id="award"></div>
+  </div>
+</div>
+
+<script>
+const VALUES = [100, 200, 300, 400, 500];
+const CATS = [
+  { name: "Just the Facts", clues: [
+    ["What is an informative speech?", "A speech based entirely and exclusively on facts"],
+    ["What does “irrefutable” mean?", "A statement or claim that cannot be argued"],
+    ["What does WIIFM stand for?", "What’s in it for me"],
+    ["Why should a topic be specific rather than broad?", "A focused topic makes research and writing easier and can actually be covered in the time limit"],
+    ["What three goals make an informative speech effective?", "Accuracy, clarity, and interest"]
+  ]},
+  { name: "Types & Topics", clues: [
+    ["How many types of informative speeches are there?", "Five"],
+    ["What are the five types of informative speeches?", "History, biography, processes, ideas and concepts, and categories or divisions"],
+    ["What are three things a history speech can cover?", "Objects, places, and ideas"],
+    ["When must you cite a source in a biography speech?", "When you use a specific author’s work, such as a historian’s explanation (basic facts like birth and death dates don’t need citations)"],
+    ["Why is “To inform my audience why William Henry Harrison was a bad president” a fake informative topic?", "Because it is an opinion, not an irrefutable fact"]
+  ]},
+  { name: "Get Organized", clues: [
+    ["Which organizational pattern must a “how to” speech use?", "Chronological order"],
+    ["Which organizational pattern is used for “types of” or “kinds of” topics?", "Topical"],
+    ["Which organizational pattern is used for the layout of a location like the White House?", "Spatial"],
+    ["What is a symposium?", "A formal group presentation where each speaker gives a prepared speech on a different aspect of one overall topic"],
+    ["How does a panel differ from a symposium?", "A panel focuses on discussion among experts, while a symposium focuses mostly on prepared speeches"]
+  ]},
+  { name: "Special Occasions", clues: [
+    ["What is a special occasion speech?", "A speech designed to address and engage the context and the audience’s emotions on a specific occasion"],
+    ["How long should acceptance speeches and toasts typically be?", "Under two minutes"],
+    ["What are after-dinner speeches?", "Humorous speeches that make a serious point"],
+    ["What are the four key ingredients for effective special occasion speaking?", "Preparation, adaptation to the occasion, adaptation to the audience, and mindfulness about the time"],
+    ["Why does special occasion delivery lean toward manuscript speaking?", "While eye contact with the audience is still vital, it is also important to get the words exactly right"]
+  ]},
+  { name: "Honors & Hype", clues: [
+    ["What is a speech of presentation?", "A brief speech given to accompany a prize or honor"],
+    ["What is a roast?", "A speech that both praises and good-naturedly insults the person being honored"],
+    ["What three things should the body of a speech of introduction cover?", "The speaker’s topic, why the speaker is qualified, and why the audience should listen"],
+    ["What are the three components of a speech of acceptance?", "Thank the givers of the award or honor, thank those who helped you achieve your goal, and put the award or honor into perspective"],
+    ["What are the four types of motivational speeches?", "Hero, survivor, religious, and success"]
+  ]},
+  { name: "Toasts & Tributes", clues: [
+    ["What is the purpose of a toast?", "To congratulate, appreciate, or remember"],
+    ["Why should you avoid inside jokes in a toast or roast?", "Inside jokes leave the audience out and unimpressed"],
+    ["What is the difference between a eulogy and an elegy?", "A eulogy is a speech in honor of someone who has died; an elegy is a poem or song of mourning"],
+    ["Who is a eulogy really for?", "The people who are still living, to help them deal with the loss"],
+    ["What are the three parts of a eulogy?", "Praise, lament, and consolation"]
+  ]}
+];
+
+const KEY = "speech-jeopardy-v1";
+let state = { used: [], teams: [{ name: "Team 1", pts: 0 }, { name: "Team 2", pts: 0 }, { name: "Team 3", pts: 0 }] };
+try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.teams) state = s; } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+
+const board = document.getElementById("board");
+const scores = document.getElementById("scores");
+const clue = document.getElementById("clue");
+let current = null;
+
+function renderBoard() {
+  board.innerHTML = "";
+  CATS.forEach(c => { const d = document.createElement("div"); d.className = "cat"; d.textContent = c.name; board.appendChild(d); });
+  VALUES.forEach((v, r) => {
+    CATS.forEach((c, ci) => {
+      const id = ci + "-" + r;
+      const b = document.createElement("button");
+      b.className = "tile" + (state.used.includes(id) ? " used" : "");
+      b.textContent = "$" + v;
+      b.setAttribute("aria-label", c.name + " for " + v + (state.used.includes(id) ? ", already played" : ""));
+      b.addEventListener("click", () => { if (!state.used.includes(id)) openClue(ci, r); });
+      board.appendChild(b);
+    });
+  });
+}
+
+function renderScores() {
+  scores.innerHTML = "";
+  state.teams.forEach((t, i) => {
+    const d = document.createElement("div"); d.className = "team";
+    const inp = document.createElement("input"); inp.id = "team-name-" + i; inp.value = t.name; inp.setAttribute("aria-label", "Team name");
+    inp.addEventListener("input", () => { t.name = inp.value; save(); });
+    const p = document.createElement("div"); p.className = "pts" + (t.pts < 0 ? " neg" : "");
+    p.textContent = (t.pts < 0 ? "−$" : "$") + Math.abs(t.pts);
+    d.append(inp, p); scores.appendChild(d);
+  });
+}
+
+function openClue(ci, r) {
+  current = { ci, r, id: ci + "-" + r };
+  const [q, a] = CATS[ci].clues[r];
+  document.getElementById("clue-cat").textContent = CATS[ci].name;
+  document.getElementById("clue-val").textContent = "$" + VALUES[r];
+  document.getElementById("clue-q").textContent = q;
+  const ae = document.getElementById("clue-a"); ae.textContent = a; ae.hidden = true;
+  document.getElementById("reveal").hidden = false;
+  const aw = document.getElementById("award"); aw.innerHTML = "";
+  const lbl = document.createElement("div"); lbl.className = "award-label"; lbl.textContent = "Adjust score"; aw.appendChild(lbl);
+  state.teams.forEach((t, i) => {
+    [["plus", 1, "+"], ["minus", -1, "−"]].forEach(([cls, sign, sym]) => {
+      const b = document.createElement("button"); b.className = cls;
+      b.textContent = t.name + " " + sym + VALUES[r];
+      b.addEventListener("click", () => { t.pts += sign * VALUES[r]; save(); renderScores(); b.blur(); b.textContent = t.name + " " + sym + VALUES[r] + " ✓"; });
+      aw.appendChild(b);
+    });
+  });
+  clue.hidden = false;
+  document.getElementById("reveal").focus();
+}
+
+function closeClue() {
+  if (current && !state.used.includes(current.id)) state.used.push(current.id);
+  save(); clue.hidden = true; current = null; renderBoard();
+}
+
+document.getElementById("reveal").addEventListener("click", () => {
+  document.getElementById("clue-a").hidden = false;
+  document.getElementById("reveal").hidden = true;
+  document.getElementById("back").focus();
+});
+document.getElementById("back").addEventListener("click", closeClue);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !clue.hidden) closeClue(); });
+
+let resetArmed = false;
+const resetBtn = document.getElementById("reset");
+resetBtn.addEventListener("click", () => {
+  if (!resetArmed) { resetArmed = true; resetBtn.textContent = "Click again to reset"; setTimeout(() => { resetArmed = false; resetBtn.textContent = "Reset board"; }, 3000); return; }
+  state.used = []; state.teams.forEach(t => t.pts = 0); save(); renderBoard(); renderScores();
+  resetArmed = false; resetBtn.textContent = "Reset board";
+});
+
+renderBoard(); renderScores();
+</script>
+</body>
+</html>
